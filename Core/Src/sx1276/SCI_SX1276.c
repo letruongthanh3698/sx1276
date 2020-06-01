@@ -7,6 +7,7 @@
  *      First version for RAK4200
  */
 #include "SCI_SX1276.h"
+#include <stdio.h>
 
 /*****************************************************************************************************************/
 /*													GLOBAL VARIABLES											 */
@@ -28,7 +29,7 @@ static void SX1276SetPublicNetwork(bool enable);
 static void SX1276Init(void);
 static void SX1276Sleep(void);
 static void SX1276Send();
-static void SX1276PrepareFrame();
+static void SX1276PrepareFrame(uint8_t *Data, uint16_t size);
 static void SX1276SetChannel(uint32_t freq);
 static void SX1276SetMacPayloadLength(RadioModems_t Modem, uint8_t length);
 static void SX1276SetTxConfig( RadioModems_t modem, int8_t power, uint32_t fdev,
@@ -38,17 +39,20 @@ static void SX1276SetTxConfig( RadioModems_t modem, int8_t power, uint32_t fdev,
         uint8_t hopPeriod, bool iqInverted, uint32_t timeout );
 static void SX1276SetStby();
 static void SX1276SetRfTxPower( int8_t power );
-static void SX1276SetTx();
+static void SX1276SetTx(bool FreqHopOn);
 static void DIO0_IRQ(void);
 static void DIO1_IRQ(void);
 static void DIO2_IRQ(void);
 static void DIO3_IRQ(void);
 static void OnTxDone(void);
 static void OnTxTimeout(void);
-static void OnRxDone(uint8_t *payload, uint16_t size, int8_t rssi, uint8_t snr);
+static void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr);
 static void OnRxWindow1Timeout(void);
 static void OnRxWindow2Timeout(void);
 static void SX1276SetAntSw(uint8_t opmode);
+static void SetUserFunction(SX1276_UserFunction_t UserFunction);
+static void NullFunction(void);
+static uint32_t SX1276Random( void );
 /*****************************************************************************************************************/
 /*											APPLICATION PROGRAMMING INTERFACE									 */
 /*****************************************************************************************************************/
@@ -73,7 +77,9 @@ SCI_SX1276_t SCI_SX1276 ={
 		.DIO1_IRQ			= &DIO1_IRQ,
 		.DIO2_IRQ			= &DIO2_IRQ,
 		.DIO3_IRQ			= &DIO3_IRQ,
-		.print				= &printf
+		.print				= &printf,
+		.SetUserFunction	= &SetUserFunction,
+		.Random				= &SX1276Random
 };
 
 SX1276_t SX1276={
@@ -106,8 +112,7 @@ uint8_t SX1276InOut(uint8_t outData)
     HCI_SX1276.SPI_COMMAND_IRQ(SPI_MODE_DISABLE);
 
 
-    HCI_SX1276.SendData(outData);
-    rxData=HCI_SX1276.GetData();
+    rxData=HCI_SX1276.SendGetData(outData);
 
 
     HCI_SX1276.SPI_COMMAND_IRQ(SPI_MODE_ENABLE);
@@ -288,50 +293,18 @@ void SX1276SetPublicNetwork( bool enable )
     }
 }
 
-void SX1276Init( )
-{
-    uint8_t i;
-
-    //RadioEvents = events;
-
-    // Initialize driver timeout timers
-    //TimerInit( &TxTimeoutTimer, SX1276OnTimeoutIrq );
-    //TimerInit( &RxTimeoutTimer, SX1276OnTimeoutIrq );
-    //TimerInit( &RxTimeoutSyncWord, SX1276OnTimeoutIrq );
-
-    SX1276Reset( );
-
-    RxChainCalibration( );
-
-    SX1276SetOpMode( RF_OPMODE_SLEEP );
-
-    //SX1276IoIrqInit( DioIrq );
-
-    for( i = 0; i < sizeof( RadioRegsInit ) / sizeof( RadioRegisters_t ); i++ )
-    {
-        SX1276SetModem( RadioRegsInit[i].Modem );
-        SX1276Write( RadioRegsInit[i].Addr, RadioRegsInit[i].Value );
-    }
-
-    SX1276SetModem( MODEM_FSK );
-    SX1276SetPublicNetwork(false);
-
-    SCI_SX1276.State=SX1276_NORMAL_RUNNING;
-    //SX1276.Settings.State = RF_IDLE;
-
-}
-
 void SX1276Sleep()
 {
 	SX1276SetOpMode( RF_OPMODE_SLEEP );
 }
 
-void SX1276PrepareFrame()
+void SX1276PrepareFrame(uint8_t *Data, uint16_t size)
 {
-	SCI_SX1276.buffer[0]=0x31;
-	SCI_SX1276.buffer[1]=0x31;
-	SCI_SX1276.buffer[2]=0x31;
-	SCI_SX1276.length=3;
+	for (uint16_t i=0;i<size;i++)
+	{
+		SCI_SX1276.buffer[i]=Data[i];
+	}
+	SCI_SX1276.length=size;
 }
 
 void SX1276SetChannel(uint32_t freq)
@@ -404,6 +377,7 @@ void SX1276SetTxConfig( RadioModems_t modem, int8_t power, uint32_t fdev,
 					SX1276Write( REG_LR_PLLHOP, ( SX1276Read( REG_LR_PLLHOP ) & RFLR_PLLHOP_FASTHOP_MASK ) | RFLR_PLLHOP_FASTHOP_ON );
 					SX1276Write( REG_LR_HOPPERIOD, hopPeriod );
 				}
+
 	    	SX1276Write( REG_LR_MODEMCONFIG1,
 	    	                         ( SX1276Read( REG_LR_MODEMCONFIG1 ) &
 	    	                           RFLR_MODEMCONFIG1_BW_MASK &
@@ -450,13 +424,13 @@ void SX1276SetTxConfig( RadioModems_t modem, int8_t power, uint32_t fdev,
 
 void SX1276Send()
 {
-	uint32_t freq=868525000;
+	uint32_t freq=868500000;
 	uint8_t txPower =TxPowers[4];
-	uint8_t datarate =Datarates[5];
+	uint8_t datarate =Datarates[0];
 	uint32_t fdev=0;
 	uint32_t bandwidth=0;
 	uint8_t coderate=1;
-	uint16_t preambleLen=5;
+	uint16_t preambleLen=8;
 	bool fixLen=false;
 	bool crcOn=true;
 	bool freqHopOn=0;
@@ -527,6 +501,7 @@ void SX1276Send()
 		// DIO0=TxDone
 		SX1276Write( REG_DIOMAPPING1, ( SX1276Read( REG_DIOMAPPING1 ) & RFLR_DIOMAPPING1_DIO0_MASK ) | RFLR_DIOMAPPING1_DIO0_01 );
 	}
+
 	SX1276SetOpMode( RF_OPMODE_TRANSMITTER );
 }
 void SX1276SetStby()
@@ -723,7 +698,7 @@ void getRxData()
 void DIO0_IRQ(void)
 {
 	SCI_SX1276.print("SX1276 Log: DIO0 Has Been Interrupt");
-	switch (SCI_SX1276)
+	switch (SCI_SX1276.State)
 	{
 		case SX1276_TX_RUNNING:
 			OnTxDone();
@@ -757,6 +732,132 @@ void DIO3_IRQ(void)
 	SCI_SX1276.UserFunction.DIO3_IRQ();
 }
 
+void SX1276Init( )
+{
+    uint8_t i;
+    SCI_SX1276.InitDone=false;
 
+    HCI_SX1276.InitSPI();
+    HCI_SX1276.InitGPIO();
+
+
+    SCI_SX1276.UserFunction.DIO0_IRQ= &NullFunction;
+    SCI_SX1276.UserFunction.DIO1_IRQ= &NullFunction;
+    SCI_SX1276.UserFunction.DIO2_IRQ= &NullFunction;
+    SCI_SX1276.UserFunction.DIO3_IRQ= &NullFunction;
+    SCI_SX1276.UserFunction.OnRxDone= &NullFunction;
+    SCI_SX1276.UserFunction.OnRxWindow1Timeout= &NullFunction;
+    SCI_SX1276.UserFunction.OnRxWindow2Timeout= &NullFunction;
+    SCI_SX1276.UserFunction.OnTxDone= &NullFunction;
+    SCI_SX1276.UserFunction.OnTxTimeout= &NullFunction;
+
+    //RadioEvents = events;
+
+    // Initialize driver timeout timers
+    //TimerInit( &TxTimeoutTimer, SX1276OnTimeoutIrq );
+    //TimerInit( &RxTimeoutTimer, SX1276OnTimeoutIrq );
+    //TimerInit( &RxTimeoutSyncWord, SX1276OnTimeoutIrq );
+
+    SX1276Reset( );
+
+    RxChainCalibration( );
+
+    SX1276SetOpMode( RF_OPMODE_SLEEP );
+
+    //SX1276IoIrqInit( DioIrq );
+
+    for( i = 0; i < sizeof( RadioRegsInit ) / sizeof( RadioRegisters_t ); i++ )
+    {
+        SX1276SetModem( RadioRegsInit[i].Modem );
+        SX1276Write( RadioRegsInit[i].Addr, RadioRegsInit[i].Value );
+    }
+
+    SX1276SetModem( MODEM_FSK );
+    srand1(SX1276Random());
+    SX1276SetPublicNetwork(true);
+
+    SCI_SX1276.State=SX1276_NORMAL_RUNNING;
+    //SX1276.Settings.State = RF_IDLE;
+    SCI_SX1276.InitDone=true;
+
+
+}
+
+void SX1276SetTx(bool FreqHopOn)
+{
+	if( FreqHopOn == true )
+	{
+		SX1276Write( REG_LR_IRQFLAGSMASK, RFLR_IRQFLAGS_RXTIMEOUT |
+										  RFLR_IRQFLAGS_RXDONE |
+										  RFLR_IRQFLAGS_PAYLOADCRCERROR |
+										  RFLR_IRQFLAGS_VALIDHEADER |
+										  //RFLR_IRQFLAGS_TXDONE |
+										  RFLR_IRQFLAGS_CADDONE |
+										  //RFLR_IRQFLAGS_FHSSCHANGEDCHANNEL |
+										  RFLR_IRQFLAGS_CADDETECTED );
+
+		// DIO0=TxDone, DIO2=FhssChangeChannel
+		SX1276Write( REG_DIOMAPPING1, ( SX1276Read( REG_DIOMAPPING1 ) & RFLR_DIOMAPPING1_DIO0_MASK & RFLR_DIOMAPPING1_DIO2_MASK ) | RFLR_DIOMAPPING1_DIO0_01 | RFLR_DIOMAPPING1_DIO2_00 );
+	}
+	else
+	{
+		SX1276Write( REG_LR_IRQFLAGSMASK, RFLR_IRQFLAGS_RXTIMEOUT |
+										  RFLR_IRQFLAGS_RXDONE |
+										  RFLR_IRQFLAGS_PAYLOADCRCERROR |
+										  RFLR_IRQFLAGS_VALIDHEADER |
+										  //RFLR_IRQFLAGS_TXDONE |
+										  RFLR_IRQFLAGS_CADDONE |
+										  RFLR_IRQFLAGS_FHSSCHANGEDCHANNEL |
+										  RFLR_IRQFLAGS_CADDETECTED );
+
+		// DIO0=TxDone
+		SX1276Write( REG_DIOMAPPING1, ( SX1276Read( REG_DIOMAPPING1 ) & RFLR_DIOMAPPING1_DIO0_MASK ) | RFLR_DIOMAPPING1_DIO0_01 );
+	}
+}
+
+void SetUserFunction(SX1276_UserFunction_t UserFunction)
+{
+	SCI_SX1276.UserFunction=UserFunction;
+}
+
+uint32_t SX1276Random( void )
+{
+    uint8_t i;
+    uint32_t rnd = 0;
+
+    /*
+     * Radio setup for random number generation
+     */
+    // Set LoRa modem ON
+    SX1276SetModem( MODEM_LORA );
+
+    // Disable LoRa modem interrupts
+    SX1276Write( REG_LR_IRQFLAGSMASK, RFLR_IRQFLAGS_RXTIMEOUT |
+                  RFLR_IRQFLAGS_RXDONE |
+                  RFLR_IRQFLAGS_PAYLOADCRCERROR |
+                  RFLR_IRQFLAGS_VALIDHEADER |
+                  RFLR_IRQFLAGS_TXDONE |
+                  RFLR_IRQFLAGS_CADDONE |
+                  RFLR_IRQFLAGS_FHSSCHANGEDCHANNEL |
+                  RFLR_IRQFLAGS_CADDETECTED );
+
+    // Set radio in continuous reception
+    SX1276SetOpMode( RF_OPMODE_RECEIVER );
+
+    for( i = 0; i < 32; i++ )
+    {
+        // Unfiltered RSSI value reading. Only takes the LSB value
+        rnd |= ( ( uint32_t )SX1276Read( REG_LR_RSSIWIDEBAND ) & 0x01 ) << i;
+    }
+
+    SX1276Sleep( );
+
+    return rnd;
+}
+
+void NullFunction(void)
+{
+
+}
 
 

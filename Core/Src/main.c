@@ -20,14 +20,11 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "rtc.h"
-#include "spi.h"
-#include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "sx1276/SCI_SX1276.h"
-
+#include "LoRaApp.h"
+#include "SCI_SX1276.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,7 +45,12 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+extern LoRaApp_t LoRaApp;
+extern SX1276_t SX1276;
 
+static uint8_t DevEUI[]={0x33,0x30,0x38,0x33,0x22,0xbc,0x31,0x44};
+static uint8_t AppEUI[]={0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x89};
+static uint8_t AppKey[]={0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -88,24 +90,22 @@ int main(void)
   /* USER CODE BEGIN SysInit */
 
   /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
-  SX1276.SCI->Init();
-  SX1276.SCI->Prepareframe();
+  LoRaApp.Init();
+  LoRaApp.SetDevEUI(DevEUI);
+  LoRaApp.SetAppEUI(AppEUI);
+  LoRaApp.SetAppKey(AppKey);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	//SX1276.Write(REG_PACONFIG,0x09);
-	//volatile uint8_t tmp=SX1276.Read(REG_PACONFIG);
 
-
-	SX1276.SCI->Send();
-	HAL_Delay(1000);
+	  LoRaApp.PrepareFrame();
+	  HAL_Delay(1000);
     /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -159,24 +159,22 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 }
-
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
+	if (!SX1276.SCI->InitDone)
+		return;
 	switch (GPIO_Pin)
 	{
 		case DIO0:
 			SX1276.SCI->DIO0_IRQ();
 			break;
-
 		case DIO1:
 			SX1276.SCI->DIO1_IRQ();
 			break;
-
 		case DIO2:
 			SX1276.SCI->DIO2_IRQ();
 			break;
-
 		case DIO3:
 			SX1276.SCI->DIO3_IRQ();
 			break;

@@ -17,6 +17,8 @@
 /*****************************************************************************************************************/
 /*													MACROS DEFINITION											 */
 /*****************************************************************************************************************/
+#define SX1276_print 		printf
+
 #define RADIO_INIT_REGISTERS_VALUE                \
 {                                                 \
     { MODEM_FSK , REG_LNA                , 0x23 },\
@@ -106,102 +108,6 @@ typedef struct
     int16_t RssiValue;
     uint8_t Size;
 }RadioLoRaPacketHandler_t;
-
-typedef union uLoRaMacHeader
-{
-    /*!
-     * Byte-access to the bits
-     */
-    uint8_t Value;
-    /*!
-     * Structure containing single access to header bits
-     */
-    struct sHdrBits
-    {
-        /*!
-         * Major version
-         */
-        uint8_t Major           : 2;
-        /*!
-         * RFU
-         */
-        uint8_t RFU             : 3;
-        /*!
-         * Message type
-         */
-        uint8_t MType           : 3;
-    }Bits;
-}LoRaMacHeader_t;
-
-typedef union uLoRaMacFrameCtrl
-{
-    /*!
-     * Byte-access to the bits
-     */
-    uint8_t Value;
-    /*!
-     * Structure containing single access to bits
-     */
-    struct sCtrlBits
-    {
-        /*!
-         * Frame options length
-         */
-        uint8_t FOptsLen        : 4;
-        /*!
-         * Frame pending bit
-         */
-        uint8_t FPending        : 1;
-        /*!
-         * Message acknowledge bit
-         */
-        uint8_t Ack             : 1;
-        /*!
-         * ADR acknowledgment request bit
-         */
-        uint8_t AdrAckReq       : 1;
-        /*!
-         * ADR control in frame header
-         */
-        uint8_t Adr             : 1;
-    }Bits;
-}LoRaMacFrameCtrl_t;
-
-typedef enum eLoRaMacFrameType
-{
-    /*!
-     * LoRaMAC join request frame
-     */
-    FRAME_TYPE_JOIN_REQ              = 0x00,
-    /*!
-     * LoRaMAC join accept frame
-     */
-    FRAME_TYPE_JOIN_ACCEPT           = 0x01,
-    /*!
-     * LoRaMAC unconfirmed up-link frame
-     */
-    FRAME_TYPE_DATA_UNCONFIRMED_UP   = 0x02,
-    /*!
-     * LoRaMAC unconfirmed down-link frame
-     */
-    FRAME_TYPE_DATA_UNCONFIRMED_DOWN = 0x03,
-    /*!
-     * LoRaMAC confirmed up-link frame
-     */
-    FRAME_TYPE_DATA_CONFIRMED_UP     = 0x04,
-    /*!
-     * LoRaMAC confirmed down-link frame
-     */
-    FRAME_TYPE_DATA_CONFIRMED_DOWN   = 0x05,
-    /*!
-     * LoRaMAC RFU frame
-     */
-    FRAME_TYPE_RFU                   = 0x06,
-    /*!
-     * LoRaMAC proprietary frame
-     */
-    FRAME_TYPE_PROPRIETARY           = 0x07,
-}LoRaMacFrameType_e;
 /*****************************************************************************************************************/
 /*											    Software Command Interface     									 */
 /*****************************************************************************************************************/
@@ -226,6 +132,8 @@ typedef struct{
 }SX1276_UserFunction_t;
 
 typedef struct{
+	bool InitDone;
+
 	RadioModems_t Modem;
 
 	uint8_t length;
@@ -264,7 +172,7 @@ typedef struct{
 
 	const void (*Send)();
 
-	const void (*Prepareframe)();
+	const void (*Prepareframe)(uint8_t *Data, uint16_t size);
 
 	const void (*SetChannel)();
 
@@ -288,7 +196,11 @@ typedef struct{
 
 	SX1276_UserFunction_t UserFunction;
 
-	const void (*print);
+	const void (*print)(const char *__restrict, ...);
+
+	const void (*SetUserFunction)(SX1276_UserFunction_t UserFunction);
+
+	const uint32_t (*Random)(void);
 
 }SCI_SX1276_t;
 

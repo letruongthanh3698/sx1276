@@ -15,9 +15,10 @@ C_DEPS :=
 
 # Every subdirectory with source files must be described here
 SUBDIRS := \
+Core/Src/LoRaApp \
+Core/Src/crypto \
 Core/Src \
 Core/Src/sx1276 \
-Core/Src/sx1276/crypto \
 Drivers/STM32L0xx_HAL_Driver/Src \
 startup \
 

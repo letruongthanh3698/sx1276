@@ -29,13 +29,9 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l0xx_hal.h"
-#include "stm32l0xx_hal.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "gpio.h"
-#include "rtc.h"
-#include "spi.h"
 
 /* USER CODE END Includes */
 

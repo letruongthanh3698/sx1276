@@ -20,21 +20,19 @@ static void InitSPI(void);
 
 static void InitGPIO(void);
 
-static void GPIOWrite(GPIO_PORT_TypeDef Port,uint16_t Pin, uint8_t Value);
+static void GPIOWrite(GPIO_PORT_TypeDef *Port,uint16_t Pin, uint8_t Value);
 
 static void RunSPI(SPI_RUN_Mode_t);
 
 static void SPI_COMMAND_IRQ(SPI_RUN_Mode_t mode);
 
-static void SendData(uint8_t data);
-
-static uint8_t GetData(void);
+static uint8_t SendGetData(uint8_t data);
 
 static void Delay(uint32_t timeout_ms);
 
 static void InitVCTLPin(void);
 
-static void InitVCTLPin(void);
+static void DeInitVCTLPin(void);
 /*****************************************************************************************************************/
 /*											APPLICATION PROGRAMMING INTERFACE									 */
 /*****************************************************************************************************************/
@@ -44,8 +42,7 @@ HCI_SX1276_t HCI_SX1276={
 		.GPIOWrite				= &GPIOWrite,
 		.RunSPI					= &RunSPI,
 		.SPI_COMMAND_IRQ		= &SPI_COMMAND_IRQ,
-		.SendData				= &SendData,
-		.GetData				= &GetData,
+		.SendGetData			= &SendGetData,
 		.Delay					= &Delay,
 		.InitVCTLPin			= &InitVCTLPin,
 		.DeInitVCTLPin			= &DeInitVCTLPin
@@ -67,8 +64,8 @@ void InitSPI(void)
 	hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
 	hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
 	hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-	hspi1.Init.NSS = SPI_NSS_SOFT;
-	hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+	hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
+	hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
 	hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
 	hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
 	hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -195,9 +192,9 @@ void DeInitVCTLPin(void)
 	  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 }
 
-void GPIOWrite(GPIO_PORT_TypeDef Port,uint16_t Pin, uint8_t Value)
+void GPIOWrite(GPIO_PORT_TypeDef *Port,uint16_t Pin, uint8_t Value)
 {
-	HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port,SPI1_NSS_Pin,0);
+	HAL_GPIO_WritePin(Port,Pin,Value);
 }
 
 void RunSPI(SPI_RUN_Mode_t mode)
@@ -217,19 +214,16 @@ void SPI_COMMAND_IRQ(SPI_RUN_Mode_t mode)
 		__disable_irq();
 }
 
-void SendData(uint8_t data)
+uint8_t SendGetData(uint8_t data)
 {
 	while( __HAL_SPI_GET_FLAG( &hspi1, SPI_FLAG_TXE ) == RESET );
-	hspi1.Instance->DR = ( uint16_t ) ( data & 0xFF );
-}
-
-uint8_t GetData(void)
-{
-	uint8_t rxData;
+	hspi1.Instance->DR = ( uint8_t ) ( data & 0xFF );
 	while( __HAL_SPI_GET_FLAG( &hspi1, SPI_FLAG_RXNE ) == RESET );
+	uint8_t rxData;
 	rxData = ( uint8_t ) hspi1.Instance->DR;
 	return rxData;
 }
+
 
 void Delay(uint32_t timeout_ms)
 {

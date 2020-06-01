@@ -20,6 +20,16 @@
 #define DIO2					GPIO_PIN_5
 #define DIO3					GPIO_PIN_4
 #define DIO_Port				GPIOB
+
+
+#define NRESET_Pin 			GPIO_PIN_0
+#define NRESET_GPIO_Port 	GPIOA
+#define SPI1_NSS_Pin 		GPIO_PIN_4
+#define SPI1_NSS_GPIO_Port 	GPIOA
+#define VCTL2_Pin 			GPIO_PIN_8
+#define VCTL2_GPIO_Port 	GPIOA
+#define VCTL1_Pin 			GPIO_PIN_11
+#define VCTL1_GPIO_Port 	GPIOA
 /*****************************************************************************************************************/
 /*													   DATA-STRUCTS												 */
 /*****************************************************************************************************************/
@@ -35,13 +45,13 @@ typedef struct{
 
 	const void (*InitGPIO)(void);
 
-	const void (*GPIOWrite)(GPIO_PORT_TypeDef Port,uint16_t Pin, uint8_t Value);
+	const void (*GPIOWrite)(GPIO_PORT_TypeDef *Port,uint16_t Pin, uint8_t Value);
 
 	const void (*RunSPI)(SPI_RUN_Mode_t mode);
 
 	const void (*SPI_COMMAND_IRQ)(SPI_RUN_Mode_t mode);
 
-	const void (*SendData)(uint8_t data);
+	const uint8_t (*SendGetData)(uint8_t data);
 
 	const uint8_t (*GetData)(void);
 
@@ -51,6 +61,5 @@ typedef struct{
 
 	const void (*DeInitVCTLPin)(void);
 }HCI_SX1276_t;
-
 
 #endif
