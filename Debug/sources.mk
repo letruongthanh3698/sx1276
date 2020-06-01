@@ -17,6 +17,7 @@ C_DEPS :=
 SUBDIRS := \
 Core/Src \
 Core/Src/sx1276 \
+Core/Src/sx1276/crypto \
 Drivers/STM32L0xx_HAL_Driver/Src \
 startup \
 

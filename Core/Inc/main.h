@@ -31,12 +31,11 @@ extern "C" {
 #include "stm32l0xx_hal.h"
 #include "stm32l0xx_hal.h"
 
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
 #include "gpio.h"
 #include "rtc.h"
 #include "spi.h"
-
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
 

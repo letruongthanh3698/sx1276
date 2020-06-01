@@ -10,6 +10,7 @@ RM := rm -rf
 -include sources.mk
 -include startup/subdir.mk
 -include Drivers/STM32L0xx_HAL_Driver/Src/subdir.mk
+-include Core/Src/sx1276/crypto/subdir.mk
 -include Core/Src/sx1276/subdir.mk
 -include Core/Src/subdir.mk
 -include subdir.mk
