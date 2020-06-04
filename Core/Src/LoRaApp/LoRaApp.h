@@ -13,11 +13,11 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include "HCI_SX1276.h"
+#include "SCI_SX1276.h"
 
 /*****************************************************************************************************************/
 /*													MACROS DEFINITION											 */
 /*****************************************************************************************************************/
-#define USE_BAND_868
 #define DevEUI_Len		8
 #define AppEUI_Len		8
 #define AppKey_Len		16
@@ -137,7 +137,60 @@ typedef struct{
 	uint32_t DevAdr;
 
 	uint32_t UpLinkCounter;
+
+	uint32_t DownLinkCounter;
+
+	TxConfig_t TxConfig;
+
+	RxConfig_t RxConfig;
 }Param_t;
+
+typedef enum{
+	TxPower_20dBm=0,
+	TxPower_14dBm,
+	TxPower_11dBm,
+	TxPower_8dBm,
+	TxPower_5dBm,
+	TxPower_2dBm,
+}TxPower_e;
+
+typedef enum{
+	SF12=0,
+	SF11,
+	SF10,
+	SF9,
+	SF8,
+	SF7
+}SpreadingFactor_e;
+
+typedef enum{
+	BW125=0,
+	BW250
+}Bandwidth_e;
+
+typedef enum{
+	DR0=0,
+	DR1,
+	DR2,
+	DR3,
+	DR4,
+	DR5,
+	DR6,
+	SF12BW125=0,
+	SF11BW125,
+	SF10BW125,
+	SF9BW125,
+	SF8BW125,
+	SF7BW125,
+	SF7BW250
+}Datarate_e;
+
+typedef enum{
+	CR4_5=1,
+	CR4_6,
+	CR4_7,
+	CR4_8
+}CodingRate_e;
 /*****************************************************************************************************************/
 /*											Application Programming Interface     								 */
 /*****************************************************************************************************************/
@@ -156,13 +209,27 @@ typedef struct{
 
 	const void (*SetBufferData)(uint8_t *Data, uint16_t size);
 
-	const void (*PrepareFrame)(void);
+	const void (*PrepareFrame)(LoRaMacHeader_t macHdr);
 
 	const void (*SetDevEUI)(uint8_t *DevEUI);
 
 	const void (*SetAppEUI)(uint8_t *AppEUI);
 
 	const void (*SetAppKey)(uint8_t *AppKey);
+
+	const void (*SetTxPower)(TxPower_e TxPower);
+
+	const void (*SetDatarate)(Datarate_e Datarate);
+
+	const void (*SetPreambleLen)(uint16_t PreambleLen);
+
+	const void (*Join)(void);
+
+	const void (*Send)(void);
+
+	const void (*SetRxWindow1Timeout)(uint32_t timeout);
+
+	const void (*SetRxWindow2Timeout)(uint32_t timeout);
 }LoRaApp_t;
 
 #endif

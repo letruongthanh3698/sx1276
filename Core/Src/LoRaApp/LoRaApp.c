@@ -14,6 +14,9 @@
 /*													GLOBAL VARIABLES											 */
 /*****************************************************************************************************************/
 extern SX1276_t SX1276;
+extern const int8_t TxPowers[];
+extern const uint8_t Datarates[];
+const uint8_t MaxPayloadOfDatarate[];
 /*****************************************************************************************************************/
 /*													PRIVATE FUNCTION											 */
 /*****************************************************************************************************************/
@@ -36,10 +39,17 @@ static void OnRxWindow2Timeout(void);
 static void Init(void);
 static void SetPort(uint8_t Port);
 static void SetBufferData(uint8_t *Data, uint16_t size);
-static void PrepareFrame(void);
+static void PrepareFrame(LoRaMacHeader_t macHdr);
 static void SetDevEUI(uint8_t *DevEUI);
 static void SetAppEUI(uint8_t *AppEUI);
 static void SetAppKey(uint8_t *AppKey);
+static void SetTxPower(TxPower_e TxPower);
+static void SetDatarate(Datarate_e Datarate);
+static void SetPreambleLen(uint16_t PreambleLen);
+static void Join(void);
+static void Send(void);
+static void SetRxWindow1Timeout(uint32_t timeout);
+static void SetRxWindow2Timeout(uint32_t timeout);
 /*****************************************************************************************************************/
 /*											APPLICATION PROGRAMMING INTERFACE									 */
 /*****************************************************************************************************************/
@@ -50,7 +60,12 @@ LoRaApp_t LoRaApp={
 		.SetAppKey			= &SetAppKey,
 		.SetPort			= &SetPort,
 		.SetBufferData		= &SetBufferData,
-		.PrepareFrame		= &PrepareFrame
+		.PrepareFrame		= &PrepareFrame,
+		.SetPreambleLen		= &SetPreambleLen,
+		.SetTxPower			= &SetTxPower,
+		.SetDatarate		= &SetDatarate,
+		.Join				= &Join,
+		.Send				= &Send
 };
 /*****************************************************************************************************************/
 /*													PRIVATE VARIABLES											 */
@@ -62,6 +77,7 @@ static uint16_t LoRaMacTxPayloadLen = 0;
 static uint8_t LoRaMacBuffer[100];
 static uint16_t LoRaMacDevNonce;
 static bool NodeAckRequested = false;
+
 /*****************************************************************************************************************/
 /*													FUNCTION IMPLEMENT									 	 	 */
 /*****************************************************************************************************************/
@@ -82,6 +98,42 @@ void Init(void)
 	UserFunction.OnTxTimeout		= &OnTxTimeout;
 
 	SX1276.SCI->SetUserFunction(UserFunction);
+
+	LoRaApp.Param.TxConfig.Modem_Type		= MODEM_LORA;
+	LoRaApp.Param.TxConfig.Frequency		= 868100000;
+	LoRaApp.Param.TxConfig.TxPower			= TxPowers[TxPower_14dBm];
+	LoRaApp.Param.TxConfig.Datarate			= Datarates[DR0];
+	LoRaApp.Param.TxConfig.fDev				= 0;
+	LoRaApp.Param.TxConfig.Bandwidth		= BW125;
+	LoRaApp.Param.TxConfig.Coderate			= CR4_5;
+	LoRaApp.Param.TxConfig.PreambleLen		= 8;
+	LoRaApp.Param.TxConfig.FixLen			= false;
+	LoRaApp.Param.TxConfig.CrcOn			= true;
+	LoRaApp.Param.TxConfig.FreqHopOn		= false;
+	LoRaApp.Param.TxConfig.HopPeriod		= 0;
+	LoRaApp.Param.TxConfig.IqInverted		= false;
+	LoRaApp.Param.TxConfig.Timeout			= 3e3;
+
+	//( MODEM_LORA, RxConfig.Bandwidth, downlinkDatarate, 1, 0, 8, RxConfig.SymbTimeout, false, 0, false, 0, 0, true, RxConfig.RxContinuous );
+	LoRaApp.Param.RxConfig.Frequency		= 868100000;
+	LoRaApp.Param.RxConfig.Modem_Type		= MODEM_LORA;
+	LoRaApp.Param.RxConfig.Bandwidth		= BW125;
+	LoRaApp.Param.RxConfig.Datarate			= Datarates[DR0];
+	LoRaApp.Param.RxConfig.Coderate			= CR4_5;
+	LoRaApp.Param.RxConfig.BandwidthAfc		= 0;
+	LoRaApp.Param.RxConfig.PreambleLen		= 8;
+	LoRaApp.Param.RxConfig.SymbTimeout		= 8;
+	LoRaApp.Param.RxConfig.FixLen			= false;
+	LoRaApp.Param.RxConfig.PayloadLen		= 0;
+	LoRaApp.Param.RxConfig.CrcOn			= false;
+	LoRaApp.Param.RxConfig.FreqHopOn		= 0;
+	LoRaApp.Param.RxConfig.HopPeriod		= 0;
+	LoRaApp.Param.RxConfig.IqInverted		= true;
+	LoRaApp.Param.RxConfig.RxContinuous		= false;
+	LoRaApp.Param.RxConfig.MaxRxWindow1		= 5000;
+	LoRaApp.Param.RxConfig.MaxRxWindow2		= 6000;
+	LoRaApp.Param.RxConfig.MaxPayload		= MaxPayloadOfDatarate[DR0];
+
 }
 
 void SetPort(uint8_t Port)
@@ -120,15 +172,11 @@ void SetAppKey(uint8_t *AppKey)
 	}
 }
 
-void PrepareFrame(void)
+void PrepareFrame(LoRaMacHeader_t macHdr)
 {
-	LoRaMacHeader_t macHdr;
 	LoRaMacFrameCtrl_t Ctrl;
 	uint8_t pktHeaderLen = 0;
 	uint32_t mic = 0;
-
-    macHdr.Value = 0;
-    macHdr.Bits.MType  = FRAME_TYPE_JOIN_REQ;
 
     Ctrl.Value = 0;
     Ctrl.Bits.FOptsLen      = 0;
@@ -155,7 +203,7 @@ void PrepareFrame(void)
 			memcpyr( LoRaMacBuffer + LoRaMacBufferPktLen, LoRaApp.LoRaMac.DevEUI, DevEUI_Len );
 			LoRaMacBufferPktLen += 8;
 
-			LoRaMacDevNonce = rand();//SX1276.SCI->Random();
+			LoRaMacDevNonce = SX1276.SCI->Random();
 
 			LoRaMacBuffer[LoRaMacBufferPktLen++] = LoRaMacDevNonce & 0xFF;
 			LoRaMacBuffer[LoRaMacBufferPktLen++] = ( LoRaMacDevNonce >> 8 ) & 0xFF;
@@ -252,15 +300,58 @@ void PrepareFrame(void)
 			LoRaMacBuffer[LoRaMacBufferPktLen + 2] = ( mic >> 16 ) & 0xFF;
 			LoRaMacBuffer[LoRaMacBufferPktLen + 3] = ( mic >> 24 ) & 0xFF;
 
-			LoRaMacBufferPktLen += LORAMAC_MFR_LEN;
+			LoRaMacBufferPktLen += LORAMAC_MFR_LEN;*/
 
-			break;*/
+			break;
 		default:
 			return;// LORAMAC_STATUS_SERVICE_UNKNOWN;
 	}
-	SX1276.SCI->Prepareframe(LoRaMacBuffer,LoRaMacBufferPktLen);
-	SX1276.SCI->Send();
 
+
+}
+
+void Send(void)
+{
+	SX1276.SCI->Prepareframe(LoRaMacBuffer,LoRaMacBufferPktLen);
+	SX1276.SCI->Send(LoRaApp.Param.TxConfig);
+}
+
+void Join()
+{
+	LoRaMacHeader_t macHdr;
+    macHdr.Value = 0;
+    macHdr.Bits.MType  = FRAME_TYPE_JOIN_REQ;
+
+    PrepareFrame(macHdr);
+    Send();
+}
+
+void SetTxPower(TxPower_e TxPower)
+{
+	LoRaApp.Param.TxConfig.TxPower=TxPowers[TxPower];
+}
+
+void SetDatarate(Datarate_e Datarate)
+{
+	LoRaApp.Param.TxConfig.Datarate=Datarate;
+	LoRaApp.Param.RxConfig.Datarate=Datarate;
+	LoRaApp.Param.RxConfig.MaxPayload=MaxPayloadOfDatarate[Datarate];
+}
+
+void SetPreambleLen(uint16_t PreambleLen)
+{
+	LoRaApp.Param.TxConfig.PreambleLen=PreambleLen;
+	LoRaApp.Param.RxConfig.PreambleLen=PreambleLen;
+}
+
+void SetRxWindow1Timeout(uint32_t timeout)
+{
+	LoRaApp.Param.RxConfig.MaxRxWindow1=timeout;
+}
+
+void SetRxWindow2Timeout(uint32_t timeout)
+{
+	LoRaApp.Param.RxConfig.MaxRxWindow2=timeout;
 }
 
 void DIO0_IRQ(void)
@@ -285,7 +376,19 @@ void DIO3_IRQ(void)
 
 void OnTxDone(void)
 {
-
+	//SX1276.SCI->SetOpMode(RF_OPMODE_RECEIVER);
+	HAL_Delay(5000);
+	SX1276.SCI->RxWindowSetup(LoRaApp.Param.RxConfig);
+	volatile uint8_t tmp;
+	tmp=SX1276.SCI->Read(REG_OPMODE);
+	tmp=SX1276.SCI->Read(REG_LNA);
+	tmp=SX1276.SCI->Read(REG_LR_MODEMCONFIG1);
+	tmp=SX1276.SCI->Read(REG_LR_MODEMCONFIG2);
+	tmp=SX1276.SCI->Read(REG_LR_SYMBTIMEOUTLSB);
+	tmp=SX1276.SCI->Read(REG_LR_PAYLOADMAXLENGTH);
+	tmp=SX1276.SCI->Read(REG_LR_SYNCWORD);
+	tmp=SX1276.SCI->Read(REG_LR_INVERTIQ);
+	tmp=SX1276.SCI->Read(REG_LR_INVERTIQ2);
 }
 
 void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr)

@@ -79,6 +79,7 @@
 #define RSSI_OFFSET_LF                              -164
 #define RSSI_OFFSET_HF                              -157
 
+#define LORA_MAC_FRMPAYLOAD_OVERHEAD                13
 /*****************************************************************************************************************/
 /*													   DATA-STRUCTS												 */
 /*****************************************************************************************************************/
@@ -108,6 +109,44 @@ typedef struct
     int16_t RssiValue;
     uint8_t Size;
 }RadioLoRaPacketHandler_t;
+
+typedef struct{
+	uint32_t Frequency;
+	RadioModems_t Modem_Type;
+	int8_t TxPower;
+	uint32_t fDev;
+	uint32_t Bandwidth;
+	uint32_t Datarate;
+	uint8_t Coderate;
+	uint16_t PreambleLen;
+	bool FixLen;
+	bool CrcOn;
+	bool FreqHopOn;
+	uint8_t HopPeriod;
+	bool IqInverted;
+	uint32_t Timeout;
+}TxConfig_t;
+
+typedef struct{
+	uint32_t Frequency;
+	RadioModems_t Modem_Type;
+	uint32_t Bandwidth;
+	uint32_t Datarate;
+	uint8_t Coderate;
+	uint32_t BandwidthAfc;
+	uint16_t PreambleLen;
+	uint16_t SymbTimeout;
+	bool FixLen;
+	uint8_t PayloadLen;
+	bool CrcOn;
+	bool FreqHopOn;
+	uint8_t HopPeriod;
+	bool IqInverted;
+	bool RxContinuous;
+	uint32_t MaxRxWindow1;
+	uint32_t MaxRxWindow2;
+	uint16_t MaxPayload;
+}RxConfig_t;
 /*****************************************************************************************************************/
 /*											    Software Command Interface     									 */
 /*****************************************************************************************************************/
@@ -138,7 +177,7 @@ typedef struct{
 
 	uint8_t length;
 
-	uint8_t buffer[100];
+	uint8_t buffer[RX_BUFFER_SIZE];
 
 	uint32_t channel;
 
@@ -170,7 +209,7 @@ typedef struct{
 
 	const void (*Sleep)(void);
 
-	const void (*Send)();
+	const void (*Send)(TxConfig_t TxConfig);
 
 	const void (*Prepareframe)(uint8_t *Data, uint16_t size);
 
@@ -178,11 +217,11 @@ typedef struct{
 
 	const void (*SetMaxPayloadLength)(RadioModems_t Modem, uint8_t length);
 
-	const void (*SetTxConfig)( RadioModems_t modem, int8_t power, uint32_t fdev,
+	const void (*SetTxConfig)(TxConfig_t TxConfig);/*( RadioModems_t modem, int8_t power, uint32_t fdev,
             uint32_t bandwidth, uint32_t datarate,
             uint8_t coderate, uint16_t preambleLen,
             bool fixLen, bool crcOn, bool freqHopOn,
-            uint8_t hopPeriod, bool iqInverted, uint32_t timeout );
+            uint8_t hopPeriod, bool iqInverted, uint32_t timeout );*/
 
 	const void (*SetStby)(void);
 
@@ -201,6 +240,12 @@ typedef struct{
 	const void (*SetUserFunction)(SX1276_UserFunction_t UserFunction);
 
 	const uint32_t (*Random)(void);
+
+	const bool (*RxWindowSetup)(RxConfig_t RxConfig);
+
+	const void (*SetRxConfig)(RxConfig_t RxConfig);
+
+	const void (*SetRx)(RxConfig_t RxConfig);
 
 }SCI_SX1276_t;
 

@@ -95,15 +95,22 @@ int main(void)
   LoRaApp.SetDevEUI(DevEUI);
   LoRaApp.SetAppEUI(AppEUI);
   LoRaApp.SetAppKey(AppKey);
+
+  LoRaApp.Join();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
-	  LoRaApp.PrepareFrame();
-	  HAL_Delay(1000);
+	  //
+	  /*if (tmp&0x07>0)
+	  {
+		  HAL_Delay(10);
+	  }*/
+	  //HAL_Delay(11000);
+	  //SX1276.SCI->Sleep();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -162,7 +169,9 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	if (!SX1276.SCI->InitDone)
+	volatile uint8_t tmp;
+	tmp=SX1276.SCI->Read(REG_LR_IRQFLAGS);
+ 	if (!SX1276.SCI->InitDone)
 		return;
 	switch (GPIO_Pin)
 	{
