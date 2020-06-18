@@ -145,6 +145,9 @@ typedef struct{
 	RxConfig_t RxConfig;
 }Param_t;
 
+/*
+ * TxPower Definition Enum
+ */
 typedef enum{
 	TxPower_20dBm=0,
 	TxPower_14dBm,
@@ -154,6 +157,9 @@ typedef enum{
 	TxPower_2dBm,
 }TxPower_e;
 
+/*
+ * Spreading Factor Definition Enum
+ */
 typedef enum{
 	SF12=0,
 	SF11,
@@ -163,11 +169,18 @@ typedef enum{
 	SF7
 }SpreadingFactor_e;
 
+/*
+ * Bandwidth Definition Enum
+ */
 typedef enum{
 	BW125=0,
 	BW250
 }Bandwidth_e;
 
+/*
+ * Datarate Definition Enum
+ * type DR_ or SF_BW_
+ */
 typedef enum{
 	DR0=0,
 	DR1,
@@ -185,6 +198,9 @@ typedef enum{
 	SF7BW250
 }Datarate_e;
 
+/*
+ * Coding Rate Definition Enum
+ */
 typedef enum{
 	CR4_5=1,
 	CR4_6,
@@ -203,32 +219,87 @@ typedef struct{
 
 	bool IsJoin;
 
+	/*
+	 * Init LoRaApp.
+	 * Frequency: 	868.1 MHz
+	 * Datarate:	DR0
+	 * Bandwidth:	125
+	 * CodingRate:	4/5
+	 */
 	const void (*Init)(void);
 
+	/*
+	 * Set Tx/Rx Frequency
+	 */
+	const void (*SetFrequency)(uint32_t Freq);
+
+	/*
+	 * Set LoRa App Data Port
+	 */
 	const void (*SetPort)(uint8_t Port);
 
+	/*
+	 * Set Data Buffer to Send.
+	 * Not Working
+	 */
 	const void (*SetBufferData)(uint8_t *Data, uint16_t size);
 
+	/*
+	 * PrepareFrame with macHdr
+	 * macHdr type = Join => Prepare Join Frame with DEV EUI, APP EUI, APP KEY
+	 * other macHdr Type => Not Working
+	 */
 	const void (*PrepareFrame)(LoRaMacHeader_t macHdr);
 
+	/*
+	 * Set DEV EUI for LoRa App
+	 */
 	const void (*SetDevEUI)(uint8_t *DevEUI);
 
+	/*
+	 * Set APP EUI for LoRa App
+	 */
 	const void (*SetAppEUI)(uint8_t *AppEUI);
 
+	/*
+	 * Set APP KEY for LoRa App
+	 */
 	const void (*SetAppKey)(uint8_t *AppKey);
 
+	/*
+	 * Set TxPower. Please Refer Enum TxPower_e
+	 */
 	const void (*SetTxPower)(TxPower_e TxPower);
 
+	/*
+	 * Set DataRate. Please Refer Enum Datarate_e
+	 */
 	const void (*SetDatarate)(Datarate_e Datarate);
 
+	/*
+	 * SetPreambleLen. Not Necessary if you dont't want using PreambleLen WakeUp
+	 */
 	const void (*SetPreambleLen)(uint16_t PreambleLen);
 
+	/*
+	 * Begin To Join.
+	 * In this version, Join Loop every when TxDone
+	 */
 	const void (*Join)(void);
 
+	/*
+	 * Send Frame
+	 */
 	const void (*Send)(void);
 
+	/*
+	 * Not Working
+	 */
 	const void (*SetRxWindow1Timeout)(uint32_t timeout);
 
+	/*
+	 * Not Working
+	 */
 	const void (*SetRxWindow2Timeout)(uint32_t timeout);
 }LoRaApp_t;
 

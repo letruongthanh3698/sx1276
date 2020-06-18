@@ -50,11 +50,13 @@ static void Join(void);
 static void Send(void);
 static void SetRxWindow1Timeout(uint32_t timeout);
 static void SetRxWindow2Timeout(uint32_t timeout);
+static void SetFrequency(uint32_t Freq);
 /*****************************************************************************************************************/
 /*											APPLICATION PROGRAMMING INTERFACE									 */
 /*****************************************************************************************************************/
 LoRaApp_t LoRaApp={
 		.Init				= &Init,
+		.SetFrequency		= &SetFrequency,
 		.SetDevEUI			= &SetDevEUI,
 		.SetAppEUI			= &SetAppEUI,
 		.SetAppKey			= &SetAppKey,
@@ -134,6 +136,12 @@ void Init(void)
 	LoRaApp.Param.RxConfig.MaxRxWindow2		= 6000;
 	LoRaApp.Param.RxConfig.MaxPayload		= MaxPayloadOfDatarate[DR0];
 
+}
+
+void SetFrequency(uint32_t Freq)
+{
+	LoRaApp.Param.RxConfig.Frequency		= Freq;
+	LoRaApp.Param.TxConfig.Frequency		= Freq;
 }
 
 void SetPort(uint8_t Port)
@@ -377,7 +385,7 @@ void DIO3_IRQ(void)
 void OnTxDone(void)
 {
 	//SX1276.SCI->SetOpMode(RF_OPMODE_RECEIVER);
-	HAL_Delay(5000);
+	/*HAL_Delay(5000);
 	SX1276.SCI->RxWindowSetup(LoRaApp.Param.RxConfig);
 	volatile uint8_t tmp;
 	tmp=SX1276.SCI->Read(REG_OPMODE);
@@ -388,7 +396,8 @@ void OnTxDone(void)
 	tmp=SX1276.SCI->Read(REG_LR_PAYLOADMAXLENGTH);
 	tmp=SX1276.SCI->Read(REG_LR_SYNCWORD);
 	tmp=SX1276.SCI->Read(REG_LR_INVERTIQ);
-	tmp=SX1276.SCI->Read(REG_LR_INVERTIQ2);
+	tmp=SX1276.SCI->Read(REG_LR_INVERTIQ2);*/
+	Send();
 }
 
 void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr)

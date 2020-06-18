@@ -48,6 +48,9 @@
 extern LoRaApp_t LoRaApp;
 extern SX1276_t SX1276;
 
+/**
+ * Declare DEVEUI, APPEUI, APPKEY here
+ */
 static uint8_t DevEUI[]={0x33,0x30,0x38,0x33,0x22,0xbc,0x31,0x44};
 static uint8_t AppEUI[]={0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x89};
 static uint8_t AppKey[]={0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c};
@@ -91,12 +94,45 @@ int main(void)
 
   /* USER CODE END SysInit */
   /* USER CODE BEGIN 2 */
+
+
+  /* LoRaApp Begin Configuration--------------------------------------------------------*/
+
+  /*
+   * Begin LoRaApp User Function
+   * The Concept for Simple Join LoRa Loop is below
+   */
   LoRaApp.Init();
   LoRaApp.SetDevEUI(DevEUI);
   LoRaApp.SetAppEUI(AppEUI);
   LoRaApp.SetAppKey(AppKey);
+  /*
+   * Set Tx/Rx Frequency
+   */
+  uint32_t Freq=868100000;
+  LoRaApp.SetFrequency(Freq);
 
+  /*
+   * Set TxPower in dBm
+   */
+  TxPower_e txpower= TxPower_14dBm;
+  LoRaApp.SetTxPower(txpower);
+
+  /*
+   * Set Datarate
+   */
+  Datarate_e datarate= SF12BW125;
+  LoRaApp.SetDatarate(datarate);
+
+  /*
+   * Send Join Frame
+   * This Function will always make a Join Request after TxDone.
+   * No Need to put this Function to Infinite loop
+   */
   LoRaApp.Join();
+
+  /* LoRaApp End Configuration--------------------------------------------------------*/
+
 
   /* USER CODE END 2 */
 
